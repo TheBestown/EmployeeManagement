@@ -1,53 +1,45 @@
-name: CI/CD for My C# Application
+name: Deploy to Server
 
 on:
   push:
     branches:
-      - main  # Change this to your main branch name
+      - development
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
+    name: Test-Deploy
 
     steps:
     - name: Checkout code
       uses: actions/checkout@v2
 
-    - name: Setup .NET
-      uses: actions/setup-dotnet@v1
+    - name: Set up .NET
+      uses: actions/setup-dotnet@v2
       with:
-        dotnet-version: '8.0.x'  # Use .NET 8.0 SDK
+        dotnet-version: '8.0.x'
 
-    - name: Install sshpass and expect
-      run: sudo apt-get install sshpass expect
+    - name: Restore dependencies
+      run: dotnet restore
 
-    - name: Create SSH directory
-      run: mkdir -p ~/.ssh
+    - name: Build
+      run: dotnet build --configuration Release --no-restore
 
-    - name: Add SSH Host Key
-      run: |
-        ssh-keyscan -p ${{ secrets.SERVER_SSH_PORT }} ${{ secrets.SERVER_IP }} >> ~/.ssh/known_hosts
-        
-    - name: Build and Deploy
-      env:
-        SERVER_IP: ${{ secrets.SERVER_IP }}
-        SERVER_USERNAME: ${{ secrets.SERVER_USERNAME }}
-        SERVER_SSH_PASSWORD: ${{ secrets.SERVER_PASSWORD }}
-        SSH_PORT: ${{ secrets.SERVER_SSH_PORT }}  # Adjust if your SSH port is different
-        SSH_PASSPHRASE: ${{ secrets.SERVER_SSH_PASSPHRASE }}
-        SSH_PRIVATE_KEY: ${{ secrets.SERVER_SSH_PRIVATE_KEY }}
-        PROJECT_NAME: "EmployeeManagement"
-      run: |
-        # Save SSH private key to a file and set permissions
-        echo "$SSH_PRIVATE_KEY" > private_key
-        chmod 600 private_key
+    - name: Publish
+      run: dotnet publish --configuration Release --no-build --output TheBestown/EmployeeManagement/output
 
-        #Build and Deploy
-        expect << EOF
-        spawn ssh -o StrictHostKeyChecking=no -i private_key -p $SSH_PORT $SERVER_USERNAME@$SERVER_IP "echo $SERVER_SSH_PASSWORD | sudo -S su - -c '~/scripts/deploy.sh'"
-        expect {
-          "password:" { send "$SERVER_SSH_PASSWORD\r" }
-          "Enter passphrase for key 'private_key':" { send "$SSH_PASSPHRASE\r" }
-        }
-        expect eof
-        EOF
+    - name: Deploy to Server
+      uses: appleboy/ssh-action@master
+      with:
+        host: ${{ secrets.SERVER_IP }}
+        username: ${{ secrets.SERVER_USERNAME }}
+        key: ${{ secrets.SERVER_SSH_PRIVATE_KEY }}
+        port: ${{ secrets.SERVER_SSH_PORT }}
+        passphrase: ${{ secrets.SERVER_SSH_PASSPHRASE }}
+        script: |
+          # Create the target directory with sudo and -S option for password input
+          echo ${{ secrets.SERVER_PASSWORD }} | sudo -S mkdir -p /var/www/EmployeeApp
+          # Copy the published files with sudo
+          echo ${{ secrets.SERVER_PASSWORD }} | sudo -S cp -r TheBestown/EmployeeManagement/output/* /var/www/EmployeeApp
+          # Restart the application or web server
+          echo ${{ secrets.SERVER_PASSWORD }} | sudo -S systemctl restart EmployeeApp.service
