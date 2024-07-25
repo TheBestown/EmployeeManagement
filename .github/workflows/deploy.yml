@@ -42,4 +42,4 @@ jobs:
           # Copy the published files with sudo
           echo sudo -S cp -r ~/actions-runner/_work/EmployeeManagement/EmployeeManagement/output/* /var/www/demo.archost.online
           # Restart the application or web server 
-          sudo -S systemctl restart EmployeeApp.service
+          echo sudo -S systemctl restart EmployeeApp.service
