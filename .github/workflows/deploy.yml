@@ -41,5 +41,5 @@ jobs:
           echo ${{ secrets.SERVER_PASSWORD }} | sudo -S mkdir -p /var/www/EmployeeApp
           # Copy the published files with sudo
           echo ${{ secrets.SERVER_PASSWORD }} | sudo -S cp -r ~/actions-runner/_work/EmployeeManagement/EmployeeManagement/output/* /var/www/EmployeeApp
-          # Restart the application or web server
+          # Restart the application or web server 
           echo ${{ secrets.SERVER_PASSWORD }} | sudo -S systemctl restart EmployeeApp.service
