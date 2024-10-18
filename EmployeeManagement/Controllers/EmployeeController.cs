@@ -31,10 +31,6 @@ public class EmployeeController : Controller
     public IActionResult Details(int id)
     {
         Employee employee = _employeeService.GetEmployeeById(id);
-
-        if(employee == null)
-            return BadRequest();
-        
         return View(employee);
     }
 
@@ -49,16 +45,8 @@ public class EmployeeController : Controller
         if(input == null || string.IsNullOrWhiteSpace(input.Name) || string.IsNullOrWhiteSpace(input.Email) || input.Name.Length > 10)
             return View();
             
-        string uniqueFileName = string.Empty;
+        string uniqueFileName = ProceedUploadPhotoFile(input);
 
-        if (input.PhotoPath != null) 
-        {
-            string uploadFolder = Path.Combine(_hostingEnv.WebRootPath, "img");
-            uniqueFileName = Guid.NewGuid().ToString() + input.PhotoPath.FileName;
-            string filePath = Path.Combine(uploadFolder, uniqueFileName);
-            input.PhotoPath.CopyTo(new FileStream(filePath, FileMode.Create));
-        }
-        
         Employee newEmployeeData = new Employee() 
         {
             Name = input.Name,
@@ -76,7 +64,6 @@ public class EmployeeController : Controller
     [HttpPost]
     public IActionResult Delete(int id) 
     {
-        Debug.WriteLine("inside");
         Employee employee = _employeeService.GetEmployeeById(id);
 
         if (employee != null)
@@ -89,21 +76,46 @@ public class EmployeeController : Controller
     public IActionResult Edit(int id) 
     {
         Employee employee = _employeeService.GetEmployeeById(id);
-        return View(employee);
 
+        EmployeeEditViewModel model = new EmployeeEditViewModel() 
+        {
+            Id = employee.Id,
+            Name = employee.Name,
+            Departement = employee.Departement,
+            Email = employee.Email,
+            Gender = employee.Gender,
+            ExistingPhotoPath = employee.PhotoPath
+        };
+        return View(model);
+        
     }
 
     [HttpPost]
-    public IActionResult Edit(Employee input) 
+    public IActionResult Edit(EmployeeEditViewModel input)
     {
-        Employee employee = _employeeService.Update(input);
-        return View(employee);
+        Employee employee = _employeeService.GetEmployeeById(input.Id);
+        employee.Name = input.Name;
+        employee.Departement = employee.Departement;
+        employee.Email = employee.Email;
+        employee.Gender = employee.Gender;
+        employee.PhotoPath = ProceedUploadPhotoFile(input);
 
+        _employeeService.Update(employee);
+        return RedirectToAction("details", new { id = employee.Id });
     }
 
-    [ResponseCache(Duration = 0, Location = ResponseCacheLocation.None, NoStore = true)]
-    public IActionResult Error()
+    private string ProceedUploadPhotoFile(EmployeeCreateViewModel input)
     {
-        return View(new ErrorViewModel { RequestId = Activity.Current?.Id ?? HttpContext.TraceIdentifier });
+        string uniqueFileName = string.Empty;
+
+        if (input.PhotoPath != null)
+        {
+            string uploadFolder = Path.Combine(_hostingEnv.WebRootPath, "img");
+            uniqueFileName = Guid.NewGuid().ToString() + input.PhotoPath.FileName;
+            string filePath = Path.Combine(uploadFolder, uniqueFileName);
+            input.PhotoPath.CopyTo(new FileStream(filePath, FileMode.Create));
+        }
+
+        return uniqueFileName;
     }
 }
